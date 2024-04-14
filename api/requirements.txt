@@ -1,0 +1,16 @@
+channels==4.0.0
+channels-redis==4.2.0
+cryptography==42.0.5
+daphne==4.1.0
+dj_database_url==2.1.0
+Django==5.0.3
+django-cors-headers==4.3.1
+django-filter~=24.2
+django-log-request-id==2.1.0
+
+django-model-utils~=4.4
+django-request-logging==0.7.5
+djangorestframework==3.15.1
+djangorestframework-simplejwt~=5.3
+drf-extensions==0.7.1
+psycopg2==2.9.9

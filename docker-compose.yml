@@ -1,0 +1,48 @@
+---
+version: "3.8"
+
+services:
+  client:
+    image: advanced-networks/client:latest
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    ports:
+      - "4173:80"
+    depends_on:
+      - api
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    image: advanced-networks/api:latest
+    command: python api/manage.py runserver 0.0.0.0:8001
+    ports:
+      - "8001:8001"
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - .:/api/
+
+  db:
+    image: postgres:latest
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: advanced_networks_db
+    ports:
+      - "5431:5432"
+    volumes:
+      - advanced-networks-pgdata:/var/lib/postgresql/data/
+
+  redis:
+    image: redis:alpine
+    command: --port 6379
+    ports:
+      - "6379:6379"
+
+volumes:
+  advanced-networks-pgdata:
