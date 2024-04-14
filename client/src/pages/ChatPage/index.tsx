@@ -79,6 +79,8 @@ const ChatPage: React.FC = () => {
 
     useEffect(() => {
         const webSocket = new WebSocket(`ws://localhost:8001/websockets/messages/${groupId}/`);
+        // when the user initially joins the room, we want to prepopulate their screen with past messages which
+        // they attempt to decrypt but may not be able to depending on if they have been invited to the group
         const fetchMessages = async () => {
             const { data } = await api.get(`/messages/groups/${groupId}/messages/`);
             const decryptedMessages = [] as IMessage[];
@@ -94,15 +96,18 @@ const ChatPage: React.FC = () => {
             setUsers(data?.results);
         };
 
+        // attempt to fetch the latest key from the server for the group.
         const fetchLatestKey = async () => {
             try {
                 const { data } = await api.get(`/crypto/aes/?group=${groupId}`);
                 const { key, id, signature } = data;
                 const publicKey = JSON.parse(localStorage?.getItem('serverPublicKey') ?? `{}`);
+                // verify the signature before attempting to decrypt
                 if (!verify(key, signature, publicKey)) {
                     console.error(`Key signature is not from recognised party!`);
                     return;
                 }
+                // get the decrypted key and return it
                 const decryptedKey = decryptBase64FromPEM(key, JSON.parse(localStorage?.getItem('privateKey') ?? `{}`));
                 return {
                     id,
@@ -113,6 +118,7 @@ const ChatPage: React.FC = () => {
             }
         };
 
+        // attempt to fetch the latest key and store it in the local storage map of keys
         const storeLatestKey = async () => {
             const keyAndId = await fetchLatestKey();
             if (!keyAndId) {
@@ -120,6 +126,7 @@ const ChatPage: React.FC = () => {
             }
             const { id, key } = keyAndId;
             const existingKeys = JSON.parse(localStorage?.getItem('keys') ?? `{}`);
+            // update the map and the current key
             const updatedKeys = {
                 ...existingKeys,
                 [groupId ?? '']: {
@@ -139,6 +146,7 @@ const ChatPage: React.FC = () => {
         fetchUsers();
         storeLatestKey();
 
+        // the handling of message receipts from the websocket
         const onMessage = async (e: MessageEvent) => {
             const data = JSON.parse(e?.data);
             switch (data?.type) {
@@ -158,6 +166,7 @@ const ChatPage: React.FC = () => {
             onMessage(e);
         };
 
+        // required for clean up after the user leaves the page
         return () => {
             webSocket.close();
         };
@@ -173,16 +182,21 @@ const ChatPage: React.FC = () => {
         setNonSelectedUsers(notSelected);
     }, [users, group]);
 
+    // triggered when a user hits 'Enter' or the send button
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
         let trimmedMessage = message?.trim();
+        // verify the message is not empty
         if (!trimmedMessage) {
             return;
         }
         try {
+            // attempt to get the key to use for encryption and then encrypt with it
             const currentKey = safeGetKey(groupId ?? '', 'current') as { key: string; id: string };
+            // this function will fail if an invalid (or undefined) key is passed to it
             const { ciphertext, iv } = await encryptSymmetric(trimmedMessage, currentKey?.key);
             trimmedMessage = ciphertext;
+            // send the ciphertext to the api along with the initialisation vector and the key id
             await api.post(`/messages/groups/${groupId}/messages/`, {
                 cipher_text: trimmedMessage,
                 initialisation_vector: iv,
@@ -199,6 +213,7 @@ const ChatPage: React.FC = () => {
         messagesViewBox!.scrollTop = messagesViewBox?.scrollHeight ?? 0;
     };
 
+    // triggered when the message group owner invites a user
     const inviteUser = async (userId: string) => {
         try {
             await api.post(`/messages/groups/${groupId}/users/`, {
@@ -210,6 +225,7 @@ const ChatPage: React.FC = () => {
         }
     };
 
+    // triggered when a message group owner wants to remove a user
     const removeUser = async (userId: string) => {
         try {
             await api.delete(`/messages/groups/${groupId}/users/remove/`, {
@@ -223,6 +239,7 @@ const ChatPage: React.FC = () => {
         }
     };
 
+    // only members of the group can send messages
     const canSendMessages = group?.users?.some(groupUser => groupUser?.user?.id === user?.id);
 
     return (
@@ -268,40 +285,9 @@ const ChatPage: React.FC = () => {
                     </Button>
                 </StyledInputContainer>
             </StyledChatContainer>
-            {isGroupCreator && (
-                <Box
-                    sx={{
-                        flex: 1,
-                        display: 'flex',
-                        justifyContent: 'center',
-                        flexDirection: 'column',
-                        padding: '10px',
-                    }}
-                >
-                    <Card>
-                        <CardContent sx={{ flexGrow: 1, overflow: 'auto' }}>
-                            <Typography variant='h5' gutterBottom>
-                                Group Members
-                            </Typography>
-                            <List sx={{ marginTop: 1 }}>
-                                {group?.users?.map(user => (
-                                    <ListItem
-                                        key={user?.user?.id}
-                                        sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-                                    >
-                                        <ListItemText primary={`${user?.user?.first_name} ${user?.user?.last_name}`} />
-                                        <IconButton
-                                            disabled={user?.user?.id === group?.created_by?.id}
-                                            onClick={async () => await removeUser(user?.user?.id)}
-                                        >
-                                            <DeleteIcon />
-                                        </IconButton>
-                                    </ListItem>
-                                ))}
-                            </List>
-                        </CardContent>
-                    </Card>
-                    <Card
+            {
+                /* This renders an extra admin panel alongside the chat page if the user is the group creator */ isGroupCreator && (
+                    <Box
                         sx={{
                             flex: 1,
                             display: 'flex',
@@ -311,27 +297,63 @@ const ChatPage: React.FC = () => {
                             mt: '2em',
                         }}
                     >
-                        <CardContent sx={{ flexGrow: 1, overflow: 'auto' }}>
-                            <Typography variant='h5' gutterBottom>
-                                Add Member
-                            </Typography>
-                            <List sx={{ marginTop: 1 }}>
-                                {nonSelectedUsers?.map(user => (
-                                    <ListItem
-                                        key={user?.id}
-                                        sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-                                    >
-                                        <ListItemText primary={`${user?.first_name} ${user?.last_name}`} />
-                                        <IconButton onClick={async () => await inviteUser(user?.id)}>
-                                            <AddIcon />
-                                        </IconButton>
-                                    </ListItem>
-                                ))}
-                            </List>
-                        </CardContent>
-                    </Card>
-                </Box>
-            )}
+                        <Card>
+                            <CardContent sx={{ flexGrow: 1, overflow: 'auto' }}>
+                                <Typography variant='h5' gutterBottom>
+                                    Group Members
+                                </Typography>
+                                <List sx={{ marginTop: 1 }}>
+                                    {group?.users?.map(user => (
+                                        <ListItem
+                                            key={user?.user?.id}
+                                            sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                                        >
+                                            <ListItemText
+                                                primary={`${user?.user?.first_name} ${user?.user?.last_name}`}
+                                            />
+                                            <IconButton
+                                                disabled={user?.user?.id === group?.created_by?.id}
+                                                onClick={async () => await removeUser(user?.user?.id)}
+                                            >
+                                                <DeleteIcon />
+                                            </IconButton>
+                                        </ListItem>
+                                    ))}
+                                </List>
+                            </CardContent>
+                        </Card>
+                        <Card
+                            sx={{
+                                flex: 1,
+                                display: 'flex',
+                                justifyContent: 'center',
+                                flexDirection: 'column',
+                                padding: '10px',
+                                mt: '2em',
+                            }}
+                        >
+                            <CardContent sx={{ flexGrow: 1, overflow: 'auto' }}>
+                                <Typography variant='h5' gutterBottom>
+                                    Add Member
+                                </Typography>
+                                <List sx={{ marginTop: 1 }}>
+                                    {nonSelectedUsers?.map(user => (
+                                        <ListItem
+                                            key={user?.id}
+                                            sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                                        >
+                                            <ListItemText primary={`${user?.first_name} ${user?.last_name}`} />
+                                            <IconButton onClick={async () => await inviteUser(user?.id)}>
+                                                <AddIcon />
+                                            </IconButton>
+                                        </ListItem>
+                                    ))}
+                                </List>
+                            </CardContent>
+                        </Card>
+                    </Box>
+                )
+            }
         </Box>
     );
 };

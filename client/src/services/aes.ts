@@ -3,10 +3,12 @@ export const encryptSymmetric = async (plaintext: string, key: string) => {
 
     const encodedPlaintext = new TextEncoder().encode(plaintext);
 
+    // key is stored in base64 raw encoding so needs to be converted beforehand
     const secretKey = await importKey(key);
 
     const ciphertext = await crypto.subtle.encrypt(getAlgorithm(initialisationVector), secretKey, encodedPlaintext);
 
+    // base64 encode before returning for easy network transfer
     return {
         ciphertext: Buffer.from(ciphertext).toString('base64'),
         iv: Buffer.from(initialisationVector).toString('base64'),
@@ -16,13 +18,13 @@ export const encryptSymmetric = async (plaintext: string, key: string) => {
 export const decryptSymmetric = async (ciphertext: string, iv: string, key: string) => {
     const secretKey = await importKey(key);
 
-    const cleartext = await crypto.subtle.decrypt(
+    const plaintext = await crypto.subtle.decrypt(
         getAlgorithm(Buffer.from(iv, 'base64')),
         secretKey,
         Buffer.from(ciphertext, 'base64'),
     );
 
-    return new TextDecoder().decode(cleartext);
+    return new TextDecoder().decode(plaintext);
 };
 
 // generate a random initialisation vector -> required for AES to prevent duplicate plaintexts being encrypted to the same
