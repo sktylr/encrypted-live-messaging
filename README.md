@@ -5,7 +5,7 @@ This application is a live messaging application with a built in cryptography an
 The application is a simple real-time group messaging app that supports the removal and addition of users to messaging groups.
 Message encryption is done using AES-256 for its speed and the AES keys are distributed using RSA-4096 encryption and signing.
 
-The central database stores X.509 certificates for each of the clients and the real-time messaging is supported through websockets, making use of the in-built `WebSocket` class in TypeScript and the [django-channels](https://pypi.org/project/django-channels/) library for the server as well as Redis to manage the message queues.
+The central database stores X.509 certificates for each of the clients and the real-time messaging is supported through websockets, making use of the in-built `WebSocket` class in TypeScript and the [channels](https://pypi.org/project/channels/) library for the server as well as Redis to manage the message queues.
 
 ## Setup
 
