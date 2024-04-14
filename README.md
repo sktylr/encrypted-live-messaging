@@ -40,3 +40,21 @@ make migrate
 
 To run the application you can run `make run` in the root directory after running the above steps.
 Next go to [localhost:4173](http://localhost:4173) in your browser. Voila!
+
+## Demonstration of Pages
+
+Group creation
+![Group creation](assets/create-group.png)
+
+View active groups
+![View groups](assets/view-groups.png)
+
+Admin view of chat
+![Admin view of chat](assets/admin-view.png)
+
+View from an intruder / user not a member of the group
+![Trudy view](assets/view-encrypted.png)
+
+View from a user who was not a member but has now been invited
+![User view](assets/encrypted-and-decrypted.png)
+
