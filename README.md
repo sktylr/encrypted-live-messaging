@@ -13,13 +13,15 @@ The application is fully dockerised though you will need to perform some basic s
 
 ```bash
 # Make sure node and npm are installed
-
+node --version  # should be v20.*
+npm --version  # should be v8.*
 npm --prefix client install
 
 # Set up python virtual environment
 cd api
 
 # You may need to alias `python` with `python3` here
+python --version  # should be 3.11
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.local.txt
