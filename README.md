@@ -39,4 +39,4 @@ make migrate
 ## Running the application
 
 To run the application you can run `make run` in the root directory after running the above steps.
-Next go to [localhost:4173](http://localhost:4173) in your browser. Viola
+Next go to [localhost:4173](http://localhost:4173) in your browser. Voila!
